@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="jslooting_icon.png" width="120" alt="JSlooting logo">
+</p>
+
 ### Disclaimer
 This tool is provided for **authorized security research and educational purposes only**.
 - Only use this tool on systems you own or have explicit written permission to test
