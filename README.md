@@ -8,11 +8,11 @@ By using this software, you agree that you will not use it for any illegal or un
 
 ### About
 
-**JSlooting is a tool built for authorized penetration tests and security research. 
+**JSlooting is a tool built for authorized penetration tests and security research.** 
 > ***Please note that some of the tool's results might be false positives***
 
 A look at the tool:
-![Showcase](image.png)
+![JSlooting interface](docs/image.png)
 
 ### Usage
 
@@ -26,10 +26,10 @@ Upload `.js` file or just paste its contents into the tool, then press `Scan` an
 And show the output in the **FINDINGS** section. 
 
 **Output showcase**:
-![Output showcase 1](screenshot.png)
-![Output showcase 2](screenshot2.png)
-![Output showcase 3](screenshot3.png)
-![Output showcase 4](screenshot4.png)
+![Output showcase 1](docs/screenshot.png)
+![Output showcase 2](docs/screenshot2.png)
+![Output showcase 3](docs/screenshot3.png)
+![Output showcase 4](docs/screenshot4.png)
 Press `Clear` button to clear the contents of current input. 
 
 ### Prerequisites
