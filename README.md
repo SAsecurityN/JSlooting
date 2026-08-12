@@ -7,7 +7,8 @@ This tool is provided for **authorized security research and educational purpose
 - Only use this tool on systems you own or have explicit written permission to test
 - The authors assume no liability for misuse or damage caused by this tool
 - Users are responsible for complying with all applicable local, state, and federal laws
-- This tool comes with no warranty — use at your own risk
+- This tool comes with no warranty - use at your own risk
+
 By using this software, you agree that you will not use it for any illegal or unauthorized activities.
 
 ### About
