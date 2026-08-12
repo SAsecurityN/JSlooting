@@ -15,6 +15,19 @@ By using this software, you agree that you will not use it for any illegal or un
 **JSlooting is a tool built for authorized penetration tests and security research.** 
 > ***Please note that some of the tool's results might be false positives***
 
+### Prerequisites
+- Python **3.7+** (3.9+ recommended) 
+- `tkinter`
+
+### Installation + Usage:
+```
+git clone https://github.com/SAsecurityN/JSlooting.git
+cd JSlooting
+
+# Use the tool:
+python3 jslooting.py
+```
+
 A look at the tool:
 ![JSlooting interface](docs/image.png)
 
@@ -35,19 +48,6 @@ And show the output in the **FINDINGS** section.
 ![Output showcase 3](docs/screenshot3.png)
 ![Output showcase 4](docs/screenshot4.png)
 Press `Clear` button to clear the contents of current input. 
-
-### Prerequisites
-- Python **3.7+** (3.9+ recommended) 
-- `tkinter`
-
-### Installation + Usage
-```
-git clone https://github.com/SAsecurityN/JSlooting.git
-cd JSlooting
-
-# Use the tool:
-python3 jslooting.py
-```
 
 ### LICENSE 
 [MIT](LICENSE)
