@@ -2,6 +2,12 @@
   <img src="jslooting_icon.png" width="120" alt="JSlooting logo">
 </p>
 
+<h1 align="center">JSlooting</h1>
+
+<p align="center">
+  Offline JavaScript sensitive/interesting info extractor
+</p>
+
 ### Disclaimer
 This tool is provided for **authorized security research and educational purposes only**.
 - Only use this tool on systems you own or have explicit written permission to test
