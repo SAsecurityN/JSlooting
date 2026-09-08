@@ -21,6 +21,7 @@ By using this software, you agree that you will not use it for any illegal or un
 
 **JSlooting is a tool built for authorized penetration tests and security research.** 
 > ***Please note that some of the tool's results might be false positives***
+> ***Please note that the tool might miss, not find, or not show something***
 
 ### Prerequisites
 - Python **3.7+** (3.9+ recommended) 
