@@ -38,7 +38,7 @@ python3 jslooting.py
 ```
 
 A look at the tool:
-![JSlooting interface](docs/image.png)
+![JSlooting interface](docs/updated.png)
 
 ### Usage
 
