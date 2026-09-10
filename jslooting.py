@@ -356,7 +356,6 @@ CATEGORY_META = [
     ("base64",    "DECODED BASE64 (of interest)",  "#C084FC"),
 ]
 
-# Premium dark palette — depth, contrast, restrained accent
 BG        = "#0B0D0F"
 SURFACE   = "#14181C"
 PANEL     = "#161A1F"
@@ -371,6 +370,300 @@ ACCENT_DIM= "#1F9A68"
 SEPARATOR = "#1F242B"
 
 
+DANGER = "#FF5C5C"
+
+
+class ScanTab(tk.Frame):
+    def __init__(self, parent, app, title="Untitled"):
+        super().__init__(parent, bg=BG)
+        self.app = app
+        self.title = title
+        self.current_file = None
+        self._placeholder_on = True
+        self.status_text = "Ready"
+        self.findings_count = 0
+        self._build()
+
+    def _card(self, parent, **kwargs):
+        outer = tk.Frame(parent, bg=BORDER, **kwargs)
+        inner = tk.Frame(outer, bg=PANEL)
+        inner.pack(fill="both", expand=True, padx=1, pady=1)
+        return outer, inner
+
+    def _select_all(self, event):
+        w = event.widget
+        w.tag_add("sel", "1.0", "end-1c")
+        w.mark_set("insert", "1.0")
+        w.see("insert")
+        return "break"
+
+    def _build(self):
+        main = tk.Frame(self, bg=BG)
+        main.pack(fill="both", expand=True)
+        main.columnconfigure(0, weight=1, uniform="col")
+        main.columnconfigure(1, weight=1, uniform="col")
+        main.rowconfigure(0, weight=1)
+
+        left_outer, left = self._card(main)
+        left_outer.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        left.rowconfigure(2, weight=1)
+        left.columnconfigure(0, weight=1)
+
+        lhead = tk.Frame(left, bg=PANEL)
+        lhead.grid(row=0, column=0, sticky="ew", padx=20, pady=(18, 0))
+        tk.Label(lhead, text="INPUT", bg=PANEL, fg=DIM,
+                 font=self.app.section_font).pack(side="left")
+        self.file_label = tk.Label(lhead, text="paste or upload a file",
+                                   bg=PANEL, fg=DIM, font=self.app.ui_sm)
+        self.file_label.pack(side="right")
+
+        lbtns = tk.Frame(left, bg=PANEL)
+        lbtns.grid(row=1, column=0, sticky="ew", padx=20, pady=(14, 12))
+
+        ttk.Button(lbtns, text="Upload .js", style="Ghost.TButton",
+                   command=self.on_upload).pack(side="left")
+        ttk.Button(lbtns, text="Clear", style="Ghost.TButton",
+                   command=self.on_clear).pack(side="left", padx=(8, 0))
+        ttk.Button(lbtns, text="Scan", style="Accent.TButton",
+                   command=self.on_scan).pack(side="right")
+
+        in_frame = tk.Frame(left, bg=BORDER)
+        in_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        in_inner = tk.Frame(in_frame, bg=ENTRYBG)
+        in_inner.pack(fill="both", expand=True, padx=1, pady=1)
+        in_inner.rowconfigure(0, weight=1)
+        in_inner.columnconfigure(0, weight=1)
+
+        self.input_text = tk.Text(
+            in_inner, bg=ENTRYBG, fg=FG, insertbackground=ACCENT,
+            font=self.app.mono, wrap="none", undo=True, relief="flat",
+            padx=16, pady=14, selectbackground="#1A2F28",
+            selectforeground=FG, highlightthickness=0, borderwidth=0
+        )
+        self.input_text.grid(row=0, column=0, sticky="nsew")
+
+        in_sy = ttk.Scrollbar(in_inner, orient="vertical",
+                              command=self.input_text.yview)
+        in_sy.grid(row=0, column=1, sticky="ns")
+        in_sx = ttk.Scrollbar(in_inner, orient="horizontal",
+                              command=self.input_text.xview)
+        in_sx.grid(row=1, column=0, sticky="ew")
+        self.input_text.configure(yscrollcommand=in_sy.set,
+                                  xscrollcommand=in_sx.set)
+
+        self.input_text.insert("1.0", "// paste JavaScript here…")
+        self.input_text.configure(fg=DIM)
+        self.input_text.bind("<FocusIn>", self._clear_placeholder)
+        self.input_text.bind("<Control-a>", self._select_all)
+        self.input_text.bind("<Control-A>", self._select_all)
+        self.input_text.bind("<Command-a>", self._select_all)
+        self.input_text.bind("<Command-A>", self._select_all)
+
+        right_outer, right = self._card(main)
+        right_outer.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
+        right.rowconfigure(1, weight=1)
+        right.columnconfigure(0, weight=1)
+
+        rhead = tk.Frame(right, bg=PANEL)
+        rhead.grid(row=0, column=0, sticky="ew", padx=20, pady=(18, 12))
+        tk.Label(rhead, text="FINDINGS", bg=PANEL, fg=DIM,
+                 font=self.app.section_font).pack(side="left")
+        self.count_label = tk.Label(rhead, text="", bg=PANEL, fg=ACCENT,
+                                    font=self.app.badge_font)
+        self.count_label.pack(side="right")
+
+        out_frame = tk.Frame(right, bg=BORDER)
+        out_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        out_inner = tk.Frame(out_frame, bg=ENTRYBG)
+        out_inner.pack(fill="both", expand=True, padx=1, pady=1)
+        out_inner.rowconfigure(0, weight=1)
+        out_inner.columnconfigure(0, weight=1)
+
+        self.output = tk.Text(
+            out_inner, bg=ENTRYBG, fg=FG, font=self.app.mono_sm,
+            wrap="word", relief="flat", padx=18, pady=16,
+            state="disabled", spacing1=2, spacing3=4,
+            highlightthickness=0, borderwidth=0,
+            selectbackground="#1A2F28", selectforeground=FG
+        )
+        self.output.grid(row=0, column=0, sticky="nsew")
+        out_sy = ttk.Scrollbar(out_inner, orient="vertical",
+                               command=self.output.yview)
+        out_sy.grid(row=0, column=1, sticky="ns")
+        self.output.configure(yscrollcommand=out_sy.set)
+        self.output.bind("<Control-a>", self._select_all)
+        self.output.bind("<Control-A>", self._select_all)
+        self.output.bind("<Command-a>", self._select_all)
+        self.output.bind("<Command-A>", self._select_all)
+
+        self.output.tag_configure("dim", foreground=DIM)
+        self.output.tag_configure("val", foreground=FG, font=self.app.mono)
+        self.output.tag_configure("hdr", font=self.app.ui_bold, spacing1=14, spacing3=6)
+        self.output.tag_configure("empty", foreground=DIM, font=self.app.ui)
+        for cat, _title, color in CATEGORY_META:
+            self.output.tag_configure(f"cat_{cat}", foreground=color,
+                                      font=self.app.ui_bold)
+            self.output.tag_configure(f"kind_{cat}", foreground=color)
+
+    def set_status(self, text):
+        self.status_text = text
+        self.app.sync_status(self)
+
+    def rename(self, title):
+        self.title = title
+        self.app.refresh_tab_bar()
+
+    def _clear_placeholder(self, _evt=None):
+        if self._placeholder_on:
+            self.input_text.delete("1.0", "end")
+            self.input_text.configure(fg=FG)
+            self._placeholder_on = False
+
+    def on_upload(self):
+        path = filedialog.askopenfilename(
+            title="Open JavaScript file",
+            filetypes=[("JavaScript / source",
+                        "*.js *.mjs *.cjs *.jsx *.ts *.tsx *.map"),
+                       ("All files", "*.*")])
+        if not path:
+            return
+        try:
+            with open(path, "rb") as fh:
+                raw = fh.read()
+            text = None
+            for enc in ("utf-8", "utf-16", "latin-1"):
+                try:
+                    text = raw.decode(enc)
+                    break
+                except UnicodeDecodeError:
+                    continue
+            if text is None:
+                text = raw.decode("utf-8", errors="replace")
+        except OSError as e:
+            messagebox.showerror("Could not read file", str(e))
+            return
+
+        self._placeholder_on = False
+        self.input_text.configure(fg=FG)
+        self.input_text.delete("1.0", "end")
+        self.input_text.insert("1.0", text)
+        self.current_file = path
+        name = os.path.basename(path)
+        size = len(raw)
+        self.file_label.configure(text=f"{name}  ·  {size:,} bytes")
+        self.rename(name)
+        self.set_status(f"Loaded {name}")
+        self.on_scan()
+
+    def on_clear(self):
+        self.input_text.delete("1.0", "end")
+        self.input_text.configure(fg=FG)
+        self._placeholder_on = False
+        self.current_file = None
+        self.file_label.configure(text="paste or upload a file")
+        self._set_output_clear()
+        self.count_label.configure(text="")
+        self.findings_count = 0
+        if self.title.startswith("Untitled"):
+            pass
+        else:
+            self.rename(self.app.next_untitled_name(exclude=self))
+        self.set_status("Cleared")
+
+    def _get_input(self):
+        if self._placeholder_on:
+            return ""
+        return self.input_text.get("1.0", "end-1c")
+
+    def on_scan(self):
+        text = self._get_input()
+        if not text.strip():
+            self.set_status("Nothing to scan — paste or upload JS first")
+            self._set_output_clear()
+            self.count_label.configure(text="")
+            self.findings_count = 0
+            return
+        self.set_status("Scanning…")
+        self.app.update_idletasks()
+        try:
+            findings = scan_text(text)
+        except Exception as e:
+            messagebox.showerror("Scan error", str(e))
+            self.set_status("Scan failed")
+            return
+        self._render(findings)
+
+    def _set_output_clear(self):
+        self.output.configure(state="normal")
+        self.output.delete("1.0", "end")
+        self.output.configure(state="disabled")
+
+    def _render(self, findings):
+        self.output.configure(state="normal")
+        self.output.delete("1.0", "end")
+
+        total = 0
+        for cat, title, _color in CATEGORY_META:
+            items = findings.get(cat, [])
+            if not items:
+                continue
+            total += len(items)
+            self.output.insert("end", f"{title}  ({len(items)})\n",
+                               ("hdr", f"cat_{cat}"))
+            for it in items:
+                self.output.insert("end", "  ›  ")
+                self.output.insert("end", it["value"], ("val",))
+                if it.get("kind"):
+                    self.output.insert("end", f"  [{it['kind']}]",
+                                       (f"kind_{cat}",))
+                self.output.insert("end", "\n")
+                self.output.insert("end", f"      L{it['line']}", ("dim",))
+                if it.get("snippet"):
+                    self.output.insert("end", f"   {it['snippet']}", ("dim",))
+                self.output.insert("end", "\n")
+            self.output.insert("end", "\n")
+
+        self.findings_count = total
+        if total == 0:
+            self.output.insert("end", "No findings.\n", ("empty",))
+            self.count_label.configure(text="0")
+            self.set_status("Scan complete — nothing matched")
+        else:
+            self.count_label.configure(text=f"{total} findings")
+            self.set_status("Scan complete")
+
+        self.output.configure(state="disabled")
+        self.app.refresh_tab_bar()
+
+    def copy_state_from(self, other):
+        self._placeholder_on = other._placeholder_on
+        self.current_file = other.current_file
+
+        src = other.input_text.get("1.0", "end-1c")
+        self.input_text.delete("1.0", "end")
+        self.input_text.insert("1.0", src)
+        self.input_text.configure(fg=DIM if self._placeholder_on else FG)
+        self.file_label.configure(text=other.file_label.cget("text"))
+
+        self.findings_count = other.findings_count
+        self.count_label.configure(text=other.count_label.cget("text"))
+        self.status_text = other.status_text
+
+        self.output.configure(state="normal")
+        self.output.delete("1.0", "end")
+        body = other.output.get("1.0", "end-1c")
+        if body:
+            self.output.insert("1.0", body)
+            for tag in other.output.tag_names():
+                if tag == "sel":
+                    continue
+                ranges = other.output.tag_ranges(tag)
+                for i in range(0, len(ranges), 2):
+                    self.output.tag_add(tag, ranges[i], ranges[i + 1])
+        self.output.configure(state="disabled")
+        self.app.sync_status(self)
+
+
 class JSLootingGUI(tk.Tk):
     def __init__(self):
         super().__init__()
@@ -379,7 +672,8 @@ class JSLootingGUI(tk.Tk):
         self.minsize(900, 560)
         self.configure(bg=BG)
 
-        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "jslooting_icon.png")
+        icon_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "jslooting_icon.png")
         if os.path.isfile(icon_path):
             try:
                 self._icon = tk.PhotoImage(file=icon_path)
@@ -387,10 +681,19 @@ class JSLootingGUI(tk.Tk):
             except Exception:
                 pass
 
-        self.current_file = None
+        self.tabs = []
+        self.active_tab = None
+        self._untitled_seq = 1
+        self._tab_chips = []
+        self._renaming_tab = None
+        self._tab_menu = None
+        self._rename_entry = None
+
         self._build_fonts()
         self._build_style()
         self._build_widgets()
+        self._bind_shortcuts()
+        self.new_tab()
 
     def _build_fonts(self):
         families = set(tkfont.families())
@@ -411,6 +714,8 @@ class JSLootingGUI(tk.Tk):
         self.title_font = tkfont.Font(family=ui_fam, size=20, weight="bold")
         self.section_font = tkfont.Font(family=ui_fam, size=10, weight="bold")
         self.badge_font = tkfont.Font(family=ui_fam, size=10, weight="bold")
+        self.tab_font = tkfont.Font(family=ui_fam, size=10)
+        self.tab_font_active = tkfont.Font(family=ui_fam, size=10, weight="bold")
 
     def _build_style(self):
         style = ttk.Style(self)
@@ -452,6 +757,17 @@ class JSLootingGUI(tk.Tk):
                   background=[("active", BORDER_HI), ("!active", BORDER)],
                   foreground=[("active", FG), ("!active", FG)])
 
+        style.configure("NewTab.TButton",
+                        background=SURFACE,
+                        foreground=FG,
+                        borderwidth=0,
+                        focusthickness=0,
+                        padding=(12, 7),
+                        font=self.ui_bold)
+        style.map("NewTab.TButton",
+                  background=[("active", BORDER_HI), ("!active", SURFACE)],
+                  foreground=[("active", ACCENT), ("!active", FG)])
+
         style.configure("Vertical.TScrollbar",
                         background=BORDER,
                         troughcolor=BG,
@@ -467,25 +783,21 @@ class JSLootingGUI(tk.Tk):
                         arrowcolor=DIM,
                         relief="flat")
 
-    def _card(self, parent, **kwargs):
-        outer = tk.Frame(parent, bg=BORDER, **kwargs)
-        inner = tk.Frame(outer, bg=PANEL)
-        inner.pack(fill="both", expand=True, padx=1, pady=1)
-        return outer, inner
-
-    def _select_all(self, event):
-        w = event.widget
-        w.tag_add("sel", "1.0", "end-1c")
-        w.mark_set("insert", "1.0")
-        w.see("insert")
-        return "break"
-
     def _build_widgets(self):
         header = tk.Frame(self, bg=BG)
         header.pack(fill="x", padx=28, pady=(22, 0))
 
         tk.Label(header, text="jslooting", bg=BG, fg=FG,
                  font=self.title_font).pack(side="left")
+
+        ttk.Button(header, text="+  New tab", style="NewTab.TButton",
+                   command=self.new_tab).pack(side="right")
+
+        hint = tk.Label(
+            header,
+            text="Ctrl+T new   ·   Ctrl+W close   ·   F2 / double-click rename",
+            bg=BG, fg=DIM, font=self.ui_sm)
+        hint.pack(side="right", padx=(0, 16))
 
         note_row = tk.Frame(self, bg=BG)
         note_row.pack(fill="x", padx=28, pady=(10, 0))
@@ -495,230 +807,346 @@ class JSLootingGUI(tk.Tk):
             bg=BG, fg=FG_SOFT, font=self.ui_bold, anchor="w"
         ).pack(side="left")
 
+        note_row2 = tk.Frame(self, bg=BG)
+        note_row2.pack(fill="x", padx=28, pady=(4, 0))
+        tk.Label(
+            note_row2,
+            text="Beware that this tool might miss some results - manual check is always important.",
+            bg=BG, fg=FG_SOFT, font=self.ui_bold, anchor="w"
+        ).pack(side="left")
+
         div = tk.Frame(self, bg=SEPARATOR, height=1)
         div.pack(fill="x", padx=28, pady=(14, 0))
 
-        main = tk.Frame(self, bg=BG)
-        main.pack(fill="both", expand=True, padx=28, pady=16)
-        main.columnconfigure(0, weight=1, uniform="col")
-        main.columnconfigure(1, weight=1, uniform="col")
-        main.rowconfigure(0, weight=1)
+        tab_wrap = tk.Frame(self, bg=BG)
+        tab_wrap.pack(fill="x", padx=28, pady=(12, 0))
 
-        left_outer, left = self._card(main)
-        left_outer.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        left.rowconfigure(2, weight=1)
-        left.columnconfigure(0, weight=1)
+        self.tab_bar = tk.Frame(tab_wrap, bg=BG)
+        self.tab_bar.pack(side="left", fill="x", expand=True)
 
-        lhead = tk.Frame(left, bg=PANEL)
-        lhead.grid(row=0, column=0, sticky="ew", padx=20, pady=(18, 0))
-        tk.Label(lhead, text="INPUT", bg=PANEL, fg=DIM,
-                 font=self.section_font).pack(side="left")
-        self.file_label = tk.Label(lhead, text="paste or upload a file",
-                                   bg=PANEL, fg=DIM, font=self.ui_sm)
-        self.file_label.pack(side="right")
-
-        lbtns = tk.Frame(left, bg=PANEL)
-        lbtns.grid(row=1, column=0, sticky="ew", padx=20, pady=(14, 12))
-
-        ttk.Button(lbtns, text="Upload .js", style="Ghost.TButton",
-                   command=self.on_upload).pack(side="left")
-        ttk.Button(lbtns, text="Clear", style="Ghost.TButton",
-                   command=self.on_clear).pack(side="left", padx=(8, 0))
-        ttk.Button(lbtns, text="Scan", style="Accent.TButton",
-                   command=self.on_scan).pack(side="right")
-
-        in_frame = tk.Frame(left, bg=BORDER)
-        in_frame.grid(row=2, column=0, sticky="nsew", padx=20, pady=(0, 20))
-        in_inner = tk.Frame(in_frame, bg=ENTRYBG)
-        in_inner.pack(fill="both", expand=True, padx=1, pady=1)
-        in_inner.rowconfigure(0, weight=1)
-        in_inner.columnconfigure(0, weight=1)
-
-        self.input_text = tk.Text(
-            in_inner, bg=ENTRYBG, fg=FG, insertbackground=ACCENT,
-            font=self.mono, wrap="none", undo=True, relief="flat",
-            padx=16, pady=14, selectbackground="#1A2F28",
-            selectforeground=FG, highlightthickness=0, borderwidth=0
-        )
-        self.input_text.grid(row=0, column=0, sticky="nsew")
-
-        in_sy = ttk.Scrollbar(in_inner, orient="vertical", command=self.input_text.yview)
-        in_sy.grid(row=0, column=1, sticky="ns")
-        in_sx = ttk.Scrollbar(in_inner, orient="horizontal", command=self.input_text.xview)
-        in_sx.grid(row=1, column=0, sticky="ew")
-        self.input_text.configure(yscrollcommand=in_sy.set, xscrollcommand=in_sx.set)
-
-        self._placeholder_on = True
-        self.input_text.insert("1.0", "// paste JavaScript here…")
-        self.input_text.configure(fg=DIM)
-        self.input_text.bind("<FocusIn>", self._clear_placeholder)
-        self.input_text.bind("<Control-a>", self._select_all)
-        self.input_text.bind("<Control-A>", self._select_all)
-        self.input_text.bind("<Command-a>", self._select_all)
-        self.input_text.bind("<Command-A>", self._select_all)
-
-        right_outer, right = self._card(main)
-        right_outer.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
-        right.rowconfigure(1, weight=1)
-        right.columnconfigure(0, weight=1)
-
-        rhead = tk.Frame(right, bg=PANEL)
-        rhead.grid(row=0, column=0, sticky="ew", padx=20, pady=(18, 12))
-        tk.Label(rhead, text="FINDINGS", bg=PANEL, fg=DIM,
-                 font=self.section_font).pack(side="left")
-        self.count_label = tk.Label(rhead, text="", bg=PANEL, fg=ACCENT,
-                                    font=self.badge_font)
-        self.count_label.pack(side="right")
-
-        out_frame = tk.Frame(right, bg=BORDER)
-        out_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
-        out_inner = tk.Frame(out_frame, bg=ENTRYBG)
-        out_inner.pack(fill="both", expand=True, padx=1, pady=1)
-        out_inner.rowconfigure(0, weight=1)
-        out_inner.columnconfigure(0, weight=1)
-
-        self.output = tk.Text(
-            out_inner, bg=ENTRYBG, fg=FG, font=self.mono_sm,
-            wrap="word", relief="flat", padx=18, pady=16,
-            state="disabled", spacing1=2, spacing3=4,
-            highlightthickness=0, borderwidth=0,
-            selectbackground="#1A2F28", selectforeground=FG
-        )
-        self.output.grid(row=0, column=0, sticky="nsew")
-        out_sy = ttk.Scrollbar(out_inner, orient="vertical", command=self.output.yview)
-        out_sy.grid(row=0, column=1, sticky="ns")
-        self.output.configure(yscrollcommand=out_sy.set)
-        self.output.bind("<Control-a>", self._select_all)
-        self.output.bind("<Control-A>", self._select_all)
-        self.output.bind("<Command-a>", self._select_all)
-        self.output.bind("<Command-A>", self._select_all)
-
-        self.output.tag_configure("dim", foreground=DIM)
-        self.output.tag_configure("val", foreground=FG, font=self.mono)
-        self.output.tag_configure("hdr", font=self.ui_bold, spacing1=14, spacing3=6)
-        self.output.tag_configure("empty", foreground=DIM, font=self.ui)
-        for cat, _title, color in CATEGORY_META:
-            self.output.tag_configure(f"cat_{cat}", foreground=color, font=self.ui_bold)
-            self.output.tag_configure(f"kind_{cat}", foreground=color)
+        self.content_host = tk.Frame(self, bg=BG)
+        self.content_host.pack(fill="both", expand=True, padx=28, pady=16)
 
         status_wrap = tk.Frame(self, bg=BG)
         status_wrap.pack(fill="x", padx=28, pady=(0, 18))
         self.status = tk.Label(status_wrap, text="Ready", bg=BG, fg=DIM,
                                font=self.ui_sm, anchor="w")
         self.status.pack(side="left")
+        self.tab_count_label = tk.Label(status_wrap, text="", bg=BG, fg=DIM,
+                                        font=self.ui_sm, anchor="e")
+        self.tab_count_label.pack(side="right")
 
-    def _clear_placeholder(self, _evt=None):
-        if self._placeholder_on:
-            self.input_text.delete("1.0", "end")
-            self.input_text.configure(fg=FG)
-            self._placeholder_on = False
+    def _bind_shortcuts(self):
+        for seq, fn in (
+            ("<Control-t>", self._shortcut_new),
+            ("<Control-T>", self._shortcut_new),
+            ("<Command-t>", self._shortcut_new),
+            ("<Command-T>", self._shortcut_new),
+            ("<Control-w>", self._shortcut_close),
+            ("<Control-W>", self._shortcut_close),
+            ("<Command-w>", self._shortcut_close),
+            ("<Command-W>", self._shortcut_close),
+            ("<Control-Tab>", self._shortcut_next),
+            ("<Control-ISO_Left_Tab>", self._shortcut_prev),
+            ("<Control-Shift-Tab>", self._shortcut_prev),
+            ("<Control-Next>", self._shortcut_next),
+            ("<Control-Prior>", self._shortcut_prev),
+            ("<F2>", self._shortcut_rename),
+        ):
+            self.bind_all(seq, fn)
 
-    def on_upload(self):
-        path = filedialog.askopenfilename(
-            title="Open JavaScript file",
-            filetypes=[("JavaScript / source",
-                        "*.js *.mjs *.cjs *.jsx *.ts *.tsx *.map"),
-                       ("All files", "*.*")])
-        if not path:
-            return
-        try:
-            with open(path, "rb") as fh:
-                raw = fh.read()
-            text = None
-            for enc in ("utf-8", "utf-16", "latin-1"):
-                try:
-                    text = raw.decode(enc)
-                    break
-                except UnicodeDecodeError:
-                    continue
-            if text is None:
-                text = raw.decode("utf-8", errors="replace")
-        except OSError as e:
-            messagebox.showerror("Could not read file", str(e))
-            return
+        for i in range(1, 10):
+            self.bind_all(f"<Control-Key-{i}>",
+                          lambda e, n=i: self._shortcut_goto(n))
+            self.bind_all(f"<Command-Key-{i}>",
+                          lambda e, n=i: self._shortcut_goto(n))
 
-        self._placeholder_on = False
-        self.input_text.configure(fg=FG)
-        self.input_text.delete("1.0", "end")
-        self.input_text.insert("1.0", text)
-        self.current_file = path
-        name = os.path.basename(path)
-        size = len(raw)
-        self.file_label.configure(text=f"{name}  ·  {size:,} bytes")
-        self.status.configure(text=f"Loaded {name}")
-        self.on_scan()
+    def _shortcut_new(self, _evt=None):
+        self.new_tab()
+        return "break"
 
-    def on_clear(self):
-        self.input_text.delete("1.0", "end")
-        self.input_text.configure(fg=FG)
-        self._placeholder_on = False
-        self.current_file = None
-        self.file_label.configure(text="paste or upload a file")
-        self._set_output_clear()
-        self.count_label.configure(text="")
-        self.status.configure(text="Cleared")
+    def _shortcut_close(self, _evt=None):
+        self.close_tab(self.active_tab)
+        return "break"
 
-    def _get_input(self):
-        if self._placeholder_on:
-            return ""
-        return self.input_text.get("1.0", "end-1c")
+    def _shortcut_next(self, _evt=None):
+        self.cycle_tab(1)
+        return "break"
 
-    def on_scan(self):
-        text = self._get_input()
-        if not text.strip():
-            self.status.configure(text="Nothing to scan — paste or upload JS first")
-            self._set_output_clear()
-            self.count_label.configure(text="")
-            return
-        self.status.configure(text="Scanning…")
-        self.update_idletasks()
-        try:
-            findings = scan_text(text)
-        except Exception as e:
-            messagebox.showerror("Scan error", str(e))
-            self.status.configure(text="Scan failed")
-            return
-        self._render(findings)
+    def _shortcut_prev(self, _evt=None):
+        self.cycle_tab(-1)
+        return "break"
 
-    def _set_output_clear(self):
-        self.output.configure(state="normal")
-        self.output.delete("1.0", "end")
-        self.output.configure(state="disabled")
+    def _shortcut_goto(self, n):
+        idx = n - 1
+        if 0 <= idx < len(self.tabs):
+            self.show_tab(self.tabs[idx])
+        return "break"
 
-    def _render(self, findings):
-        self.output.configure(state="normal")
-        self.output.delete("1.0", "end")
+    def _shortcut_rename(self, _evt=None):
+        self.start_rename(self.active_tab)
+        return "break"
 
-        total = 0
-        for cat, title, _color in CATEGORY_META:
-            items = findings.get(cat, [])
-            if not items:
-                continue
-            total += len(items)
-            self.output.insert("end", f"{title}  ({len(items)})\n",
-                               ("hdr", f"cat_{cat}"))
-            for it in items:
-                self.output.insert("end", "  ›  ")
-                self.output.insert("end", it["value"], ("val",))
-                if it.get("kind"):
-                    self.output.insert("end", f"  [{it['kind']}]",
-                                       (f"kind_{cat}",))
-                self.output.insert("end", "\n")
-                self.output.insert("end", f"      L{it['line']}", ("dim",))
-                if it.get("snippet"):
-                    self.output.insert("end", f"   {it['snippet']}", ("dim",))
-                self.output.insert("end", "\n")
-            self.output.insert("end", "\n")
+    def next_untitled_name(self, exclude=None):
+        used = {t.title for t in self.tabs if t is not exclude}
+        while True:
+            name = f"Untitled {self._untitled_seq}" if self._untitled_seq > 1 else "Untitled"
+            if name not in used:
+                return name
+            self._untitled_seq += 1
 
-        if total == 0:
-            self.output.insert("end", "No findings.\n", ("empty",))
-            self.count_label.configure(text="0")
-            self.status.configure(text="Scan complete — nothing matched")
+    def new_tab(self, title=None, after=None):
+        if title is None:
+            title = self.next_untitled_name()
+            self._untitled_seq += 1
+        tab = ScanTab(self.content_host, self, title=title)
+        if after in self.tabs:
+            self.tabs.insert(self.tabs.index(after) + 1, tab)
         else:
-            self.count_label.configure(text=f"{total} findings")
-            self.status.configure(text="Scan complete")
+            self.tabs.append(tab)
+        self.show_tab(tab)
+        return tab
 
-        self.output.configure(state="disabled")
+    def duplicate_title(self, title):
+        used = {t.title for t in self.tabs}
+        candidate = f"{title} (copy)"
+        if candidate not in used:
+            return candidate
+        n = 2
+        while f"{title} (copy {n})" in used:
+            n += 1
+        return f"{title} (copy {n})"
+
+    def duplicate_tab(self, tab):
+        if tab is None or tab not in self.tabs:
+            return
+        clone = self.new_tab(title=self.duplicate_title(tab.title), after=tab)
+        clone.copy_state_from(tab)
+        clone.set_status(f"Duplicated “{tab.title}”")
+        self.refresh_tab_bar()
+
+    def rename_tab(self, tab):
+        self.start_rename(tab)
+
+    def start_rename(self, tab):
+        if tab is None or tab not in self.tabs:
+            return
+        self._renaming_tab = tab
+        if self.active_tab is not tab:
+            self.show_tab(tab, focus_input=False)
+        else:
+            self.refresh_tab_bar()
+
+    def _commit_rename(self, tab, value, cancelled=False):
+        if self._renaming_tab is not tab:
+            return
+        self._renaming_tab = None
+        self._rename_entry = None
+        if not cancelled:
+            name = (value or "").strip()
+            if name and name != tab.title:
+                tab.title = name
+                tab.set_status(f'Renamed to "{name}"')
+        self.refresh_tab_bar()
+
+    def _show_tab_menu(self, event, tab):
+        if tab not in self.tabs:
+            return
+        if self.active_tab is not tab:
+            self.show_tab(tab, focus_input=False)
+
+        if self._tab_menu is not None:
+            try:
+                self._tab_menu.destroy()
+            except tk.TclError:
+                pass
+
+        menu = tk.Menu(
+            self, tearoff=0,
+            bg=PANEL, fg=FG,
+            activebackground=BORDER_HI, activeforeground=FG,
+            disabledforeground=DIM,
+            relief="flat", bd=0,
+            font=self.ui,
+        )
+        menu.add_command(
+            label="Duplicate",
+            command=lambda t=tab: self.after(10, lambda: self.duplicate_tab(t)))
+        menu.add_command(
+            label="Rename",
+            command=lambda t=tab: self.after(10, lambda: self.start_rename(t)))
+        menu.add_separator()
+        menu.add_command(
+            label="Close",
+            command=lambda t=tab: self.after(10, lambda: self.close_tab(t)))
+        self._tab_menu = menu
+        try:
+            menu.tk_popup(event.x_root, event.y_root)
+        finally:
+            menu.grab_release()
+
+    def close_tab(self, tab):
+        if tab is None or tab not in self.tabs:
+            return
+        if self._renaming_tab is tab:
+            self._renaming_tab = None
+            self._rename_entry = None
+        if len(self.tabs) == 1:
+            tab.on_clear()
+            tab.rename("Untitled")
+            self._untitled_seq = 2
+            tab.set_status("Cleared")
+            self.refresh_tab_bar()
+            return
+        idx = self.tabs.index(tab)
+        self.tabs.remove(tab)
+        if self.active_tab is tab:
+            self.active_tab = None
+            tab.pack_forget()
+            nxt = self.tabs[min(idx, len(self.tabs) - 1)]
+            self.show_tab(nxt)
+        tab.destroy()
+        self.refresh_tab_bar()
+
+    def show_tab(self, tab, focus_input=True):
+        if tab is None or tab not in self.tabs:
+            return
+        switched = self.active_tab is not tab
+        if switched and self.active_tab is not None:
+            if self._renaming_tab is self.active_tab:
+                self._renaming_tab = None
+            self.active_tab.pack_forget()
+        self.active_tab = tab
+        tab.pack(fill="both", expand=True)
+        self.status.configure(text=tab.status_text)
+        if switched:
+            self.refresh_tab_bar()
+        if focus_input and self._renaming_tab is not tab:
+            try:
+                tab.input_text.focus_set()
+            except tk.TclError:
+                pass
+
+    def cycle_tab(self, step):
+        if not self.tabs:
+            return
+        if self.active_tab in self.tabs:
+            i = self.tabs.index(self.active_tab)
+        else:
+            i = 0
+        self.show_tab(self.tabs[(i + step) % len(self.tabs)])
+
+    def sync_status(self, tab):
+        if tab is self.active_tab:
+            self.status.configure(text=tab.status_text)
+
+    def refresh_tab_bar(self):
+        for chip in self._tab_chips:
+            chip.destroy()
+        self._tab_chips.clear()
+
+        n = len(self.tabs)
+        self.tab_count_label.configure(
+            text=f"{n} tab{'s' if n != 1 else ''}")
+
+        for tab in self.tabs:
+            active = tab is self.active_tab
+            bg = PANEL if active else SURFACE
+            fg = FG if active else FG_SOFT
+            accent_bar = ACCENT if active else SURFACE
+
+            chip = tk.Frame(self.tab_bar, bg=BORDER)
+            chip.pack(side="left", padx=(0, 6))
+            inner = tk.Frame(chip, bg=bg)
+            inner.pack(fill="both", expand=True, padx=1, pady=1)
+
+            bar = tk.Frame(inner, bg=accent_bar, height=2)
+            bar.pack(fill="x", side="top")
+
+            row = tk.Frame(inner, bg=bg)
+            row.pack(fill="x")
+
+            close = tk.Label(row, text="×", bg=bg, fg=DIM,
+                             font=self.ui_med, padx=8, pady=6, cursor="hand2")
+            close.pack(side="right")
+
+            renaming = tab is self._renaming_tab
+            if renaming:
+                var = tk.StringVar(value=tab.title)
+                name = tk.Entry(
+                    row, textvariable=var, bg=ENTRYBG, fg=FG,
+                    insertbackground=ACCENT, relief="flat",
+                    font=self.tab_font_active, highlightthickness=1,
+                    highlightbackground=ACCENT, highlightcolor=ACCENT,
+                    borderwidth=0, width=max(8, min(len(tab.title) + 2, 28)))
+                name.pack(side="left", padx=6, pady=3)
+                name.select_range(0, "end")
+                name.icursor("end")
+                self._rename_entry = name
+
+                def _ok(_e=None, t=tab, v=var):
+                    self._commit_rename(t, v.get(), cancelled=False)
+                    return "break"
+
+                def _cancel(_e=None, t=tab):
+                    self._commit_rename(t, None, cancelled=True)
+                    return "break"
+
+                def _blur(_e=None, t=tab, v=var):
+                    if self._renaming_tab is t:
+                        self._commit_rename(t, v.get(), cancelled=False)
+
+                name.bind("<Return>", _ok)
+                name.bind("<Escape>", _cancel)
+                name.bind("<FocusOut>", _blur)
+                self.after(10, name.focus_set)
+            else:
+                label_text = tab.title
+                if tab.findings_count:
+                    label_text = f"{tab.title}  ·  {tab.findings_count}"
+
+                name = tk.Label(row, text=label_text, bg=bg, fg=fg,
+                                font=self.tab_font_active if active else self.tab_font,
+                                padx=10, pady=6)
+                name.pack(side="left")
+
+            def _select(_e=None, t=tab):
+                if t is self.active_tab:
+                    return
+                self.show_tab(t)
+
+            def _close(_e=None, t=tab):
+                self.close_tab(t)
+
+            def _mid(_e=None, t=tab):
+                self.close_tab(t)
+
+            def _menu(_e, t=tab):
+                self._show_tab_menu(_e, t)
+
+            def _rename_dbl(_e=None, t=tab):
+                self.start_rename(t)
+                return "break"
+
+            def _enter_x(_e, w=close):
+                w.configure(fg=DANGER)
+
+            def _leave_x(_e, w=close, color=DIM):
+                w.configure(fg=color)
+
+            for w in (chip, inner, row, name, bar, close):
+                w.bind("<Button-3>", _menu)
+                w.bind("<Control-Button-1>", _menu)
+            if not renaming:
+                for w in (inner, row, name, bar):
+                    w.bind("<Button-1>", _select)
+                    w.bind("<Button-2>", _mid)
+                name.bind("<Double-Button-1>", _rename_dbl)
+            close.bind("<Button-1>", _close)
+            close.bind("<Enter>", _enter_x)
+            close.bind("<Leave>", _leave_x)
+
+            self._tab_chips.append(chip)
 
 
 def main():
